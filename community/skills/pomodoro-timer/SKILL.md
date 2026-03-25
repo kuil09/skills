@@ -17,12 +17,11 @@ description: >
 ## Workflow
 
 1. **시작**: 사용자가 뽀모도로 시작을 요청하면 작업 목표를 확인하고 타이머를 실행합니다.
-2. **집중 세션**: 타이머가 백그라운드에서 25분을 카운트다운합니다.
-3. **짧은 휴식 알림**: 타이머가 터미널에 알림을 출력하면, 사용자가 에이전트에게 회고를 요청합니다.
-4. **세션 회고**: 에이전트가 상태 파일을 읽고 3가지 질문으로 간결한 세션 회고를 진행합니다.
-5. **반복**: 세션 2, 3도 같은 방식으로 진행합니다.
-6. **긴 휴식 알림**: 4번째 세션 완료 후 타이머가 긴 휴식 알림을 출력합니다.
-7. **통합 회고**: 에이전트가 4개의 세션 회고를 통합하여 사이클 전체 회고 보고서를 작성합니다.
+2. **루프 감시 시작**: `/loop 30s` 로 30초마다 `pomodoro-check.sh`를 실행해 타이머 전환을 감지합니다.
+3. **집중 세션**: 타이머가 백그라운드에서 25분을 카운트다운. 에이전트는 침묵합니다.
+4. **자동 감지 → 능동 개입**: 에이전트가 `short_break` 또는 `long_break`를 감지하면 **먼저 사용자에게 개입**합니다.
+5. **세션 회고**: 에이전트가 3가지 질문으로 회고를 진행하고 `pomodoro-mark-retro.sh`로 완료 표시합니다.
+6. **통합 회고**: 4번째 세션 후 에이전트가 긴 휴식을 선언하고 사이클 통합 회고 보고서를 작성합니다.
 
 ## State File
 
@@ -44,8 +43,10 @@ description: >
 ## Resources
 
 - `scripts/pomodoro.sh` — 타이머 실행/상태/중지/로그 명령
+- `scripts/pomodoro-check.sh` — 루프용 회고 필요 여부 감지 (RETRO_NEEDED / NO_ACTION)
+- `scripts/pomodoro-mark-retro.sh` — 회고 완료 표시 (중복 개입 방지)
 - `scripts/pomodoro-context.sh` — 에이전트용 상태+로그 통합 출력
-- `agents/claude.md` — Claude 에이전트 행동 지침
+- `agents/claude.md` — Claude 에이전트 행동 지침 (루프 기반 능동 개입)
 - `references/pomodoro-technique.md` — 뽀모도로 테크닉 배경 지식
 
 ## Quick Start
@@ -54,8 +55,14 @@ description: >
 # 타이머 시작 (백그라운드 실행)
 bash community/skills/pomodoro-timer/scripts/pomodoro.sh start
 
-# 현재 상태 확인 (에이전트가 사용)
-bash community/skills/pomodoro-timer/scripts/pomodoro-context.sh
+# 루프 감시 시작 (에이전트가 자동으로 전환 감지)
+# /loop 30s bash community/skills/pomodoro-timer/scripts/pomodoro-check.sh ...
+
+# 회고 필요 여부 수동 확인
+bash community/skills/pomodoro-timer/scripts/pomodoro-check.sh
+
+# 회고 완료 표시 (세션 번호 필요)
+bash community/skills/pomodoro-timer/scripts/pomodoro-mark-retro.sh 2
 
 # 타이머 중지
 bash community/skills/pomodoro-timer/scripts/pomodoro.sh stop
