@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Your Skill Name
+  short_description: One-line description of what this skill does.
+  default_prompt: Help me use this skill effectively.
