@@ -9,6 +9,59 @@
 - `templates/skill-starter/`: 새 스킬 시작 템플릿
 - `scripts/new-skill.sh`: 스킬 폴더 빠른 생성 스크립트
 
+## 설치 방법
+
+[skills CLI](https://skills.sh)를 사용해 에이전트에 스킬을 설치합니다. Node.js(npx)만 있으면 됩니다.
+
+### 기본 설치
+
+```bash
+# 이 저장소의 모든 스킬 설치 (대화형)
+npx skills add kuil09/skills
+```
+
+### 자주 쓰는 설치 예시
+
+```bash
+# 특정 에이전트에만 설치
+npx skills add kuil09/skills -a claude-code
+npx skills add kuil09/skills -a claude-code -a cursor
+
+# 특정 스킬만 설치
+npx skills add kuil09/skills --skill my-skill-name
+
+# 전역(글로벌) 설치 — 모든 프로젝트에서 사용
+npx skills add kuil09/skills -g
+
+# CI/CD 등 비대화형 설치
+npx skills add kuil09/skills --all -y
+```
+
+### 설치 범위
+
+| 범위 | 플래그 | 저장 위치 |
+|------|--------|-----------|
+| 프로젝트 (기본) | 없음 | `./<agent>/skills/` |
+| 글로벌 | `-g` | `~/<agent>/skills/` |
+
+> Claude Code 기준 프로젝트 경로: `.claude/skills/` / 글로벌 경로: `~/.claude/skills/`
+
+### 설치 후 관리
+
+```bash
+# 설치된 스킬 목록 확인
+npx skills list
+
+# 업데이트 확인 및 적용
+npx skills check
+npx skills update
+
+# 스킬 제거
+npx skills remove my-skill-name
+```
+
+---
+
 ## 빠른 시작
 
 ```bash
