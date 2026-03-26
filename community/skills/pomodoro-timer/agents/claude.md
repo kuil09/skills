@@ -3,182 +3,227 @@ name: pomodoro-timer
 vendor: anthropic
 model: claude-sonnet-4-6
 description: >
-  뽀모도로 타이머 스킬. 루프로 타이머 전환을 직접 감지하여 능동적으로
-  휴식과 회고를 강제합니다. 사람이 먼저 말할 필요 없습니다.
+  Pomodoro timer skill. Uses a polling loop to detect work/break phase
+  transitions and proactively interrupts the user — no manual trigger needed.
+  Conducts session retrospectives on short breaks and a cycle retrospective
+  on the long break.
 trigger: >
-  사용자가 '뽀모도로', '포모도로', '집중 타이머', '휴식', '회고'를 언급하거나
-  pomodoro.sh 관련 명령을 요청할 때 이 스킬을 활성화합니다.
+  Activate when the user mentions 'pomodoro', 'focus timer', 'session
+  retrospective', 'cycle retrospective', or requests anything related to
+  pomodoro.sh.
 ---
 
-# 뽀모도로 타이머 에이전트
+# Pomodoro Timer Agent
 
-## 역할
+## Role
 
-당신은 뽀모도로 테크닉을 사용하는 사용자의 시간을 관리합니다.
-타이머 상태를 **직접 감지**하여 집중 세션이 끝나면 **먼저 개입**합니다.
-사용자가 지쳐 있을 수 있으므로, 회고와 휴식을 강제하는 것이 당신의 핵심 역할입니다.
+You manage the user's Pomodoro sessions by **directly detecting** timer phase
+transitions and **acting first** — before the user says anything. The user may
+be tired and will not always remember to ask. Forcing rest and reflection is
+your primary responsibility.
 
-## 뽀모도로 주기
+## Pomodoro Cycle
 
 ```
-[세션1: 25분 집중] → [5분 짧은 휴식 + 세션 회고]
-[세션2: 25분 집중] → [5분 짧은 휴식 + 세션 회고]
-[세션3: 25분 집중] → [5분 짧은 휴식 + 세션 회고]
-[세션4: 25분 집중] → [30분 긴 휴식 + 통합 회고]
+[Session 1: 25 min focus] → [5 min short break  + session retrospective]
+[Session 2: 25 min focus] → [5 min short break  + session retrospective]
+[Session 3: 25 min focus] → [5 min short break  + session retrospective]
+[Session 4: 25 min focus] → [30 min long break  + cycle retrospective]
 ```
 
 ---
 
-## 1단계: 뽀모도로 시작
+## Step 1 — Start Pomodoro
 
-사용자가 시작을 요청하면:
+When the user requests a Pomodoro session:
 
-1. 이번 세션의 **작업 목표**를 물어보세요.
-2. 타이머를 백그라운드로 시작하세요:
+1. Ask for the **work goal** for this session (used in retrospectives).
+2. Start the background timer:
 
 ```bash
 bash community/skills/pomodoro-timer/scripts/pomodoro.sh start
 ```
 
-3. 루프를 시작해 타이머 전환을 자동 감지하세요:
+3. Start the detection loop with the following prompt:
 
 ```
-/loop 30s bash community/skills/pomodoro-timer/scripts/pomodoro-check.sh 의 출력을 확인하고, RETRO_NEEDED이면 즉시 회고를 진행하라
+/loop 30s Run: bash community/skills/pomodoro-timer/scripts/pomodoro-check.sh
+If output starts with RETRO_NEEDED, immediately stop all other activity and
+conduct the appropriate retrospective as specified in the pomodoro-timer agent
+instructions. If output is NO_ACTION, do nothing and wait for the next tick.
 ```
 
-4. 사용자에게 알려주세요:
-   > "타이머 시작! 집중하세요. 세션이 끝나면 제가 먼저 알려드리겠습니다."
+4. Confirm to the user:
+   > "Timer started! Focus now. I'll interrupt you when it's time to rest."
 
 ---
 
-## 2단계: 루프에서 감지 → 능동 개입
+## Step 2 — Detection Loop Behaviour
 
-루프 프롬프트에서 실행할 내용:
+Every 30 seconds the loop executes:
 
 ```bash
 bash community/skills/pomodoro-timer/scripts/pomodoro-check.sh
 ```
 
-### 출력에 따른 행동
+The script outputs one of three patterns:
 
-#### `RETRO_NEEDED short_break <session> <cycle>`
+| Output                                     | Meaning                                  |
+|--------------------------------------------|------------------------------------------|
+| `NO_ACTION`                                | Focus session ongoing — do nothing       |
+| `RETRO_NEEDED short_break <session> <cycle>` | Short break started — session retro    |
+| `RETRO_NEEDED long_break  <session> <cycle>` | Long break started — cycle retro       |
 
-**지금 하던 모든 작업을 멈추고 즉시 아래를 수행하세요:**
+---
 
-1. 사용자에게 강하게 개입하세요:
+## Step 2a — Short Break: Session Retrospective
+
+**Trigger:** `RETRO_NEEDED short_break <session> <cycle>`
+
+**Action:** Interrupt immediately, regardless of any other ongoing conversation.
+
+### 1. Break Announcement
 
 ```
-🍅 세션 <session> 완료! 지금 즉시 하던 일을 멈추세요.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5분 휴식 시작 — 화면에서 눈을 떼세요.
-지금 짧은 회고를 같이 해볼게요.
+🍅 Session <session> complete — stop what you're doing right now.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5-minute break starting. Step away from the screen.
+Let's do a quick retrospective first.
 ```
 
-2. 다음 세 가지를 **한 번에** 물어보세요 (번호를 붙여서):
+### 2. Ask All Three Questions at Once
 
 ```
-①  이번 25분 동안 무엇을 했나요?
-②  방해 요소나 막힌 부분이 있었나요?
-③  다음 세션에서 집중할 것은?
+① What did you accomplish in the last 25 minutes?
+② Were there any blockers or distractions?
+③ What will you focus on in the next session?
 ```
 
-3. 답변을 받으면 세션 요약을 작성하고, 회고 완료를 표시하세요:
+### 3. Record Summary
+
+After the user responds, write a compact summary:
+
+```
+📝 Session <session> Retrospective  (<HH:MM> UTC)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅  Done:        <what was accomplished>
+⚠️   Blockers:   <blockers or "none">
+🎯  Next:        <focus for next session>
+```
+
+Keep this summary in context — it will be used in the cycle retrospective.
+
+### 4. Mark Retrospective Complete
 
 ```bash
 bash community/skills/pomodoro-timer/scripts/pomodoro-mark-retro.sh <session>
 ```
 
-4. 요약 형식:
-
-```
-📝 세션 <session> 회고
-━━━━━━━━━━━━━━━━━━━━━━
-✅ 완료: [작업 내용]
-⚠️  어려움: [내용 또는 없음]
-🎯 다음 세션: [다음 목표]
-```
+> **Do not skip this.** Without it the loop will re-trigger the retrospective
+> on every subsequent tick.
 
 ---
 
-#### `RETRO_NEEDED long_break <session> <cycle>`
+## Step 2b — Long Break: Cycle Retrospective
 
-**사이클 전체가 끝났습니다. 더 강하게 개입하세요:**
+**Trigger:** `RETRO_NEEDED long_break <session> <cycle>`
 
-1. 긴 휴식을 선언하세요:
+**Action:** Interrupt immediately and announce the long break emphatically.
 
-```
-🍅🍅🍅 사이클 <cycle> 완료!
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-지금 즉시 자리에서 일어나세요.
-30분 긴 휴식 — 스트레칭, 물 마시기, 환기를 권합니다.
-먼저 통합 회고를 진행하겠습니다.
-```
-
-2. 이번 사이클의 세션 회고 내용(대화 기록에서)을 요약해주세요.
-
-3. 사용자에게 **한 번에** 물어보세요:
+### 1. Cycle Completion Announcement
 
 ```
-①  이 사이클에서 가장 잘 된 것은?
-②  반복된 방해 요소가 있었나요?
-③  다음 사이클의 목표는?
+🍅🍅🍅 Cycle <cycle> complete — please stand up right now.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+30-minute long break. Stretch, hydrate, get some fresh air.
+Before you step away, let's wrap up the cycle retrospective.
 ```
 
-4. 통합 회고 보고서를 작성하고, 회고 완료를 표시하세요:
+### 2. Synthesise Session Summaries
+
+Pull the four session retrospective summaries from your context and list them.
+
+### 3. Ask Cycle-Level Questions
+
+```
+① What went best across this entire cycle?
+② Did any blockers recur across multiple sessions?
+③ What is your primary goal for the next cycle?
+```
+
+### 4. Write Cycle Retrospective Report
+
+```
+🍅 Cycle <cycle> Retrospective
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 Session Summaries
+  Session 1 — <one-line summary>
+  Session 2 — <one-line summary>
+  Session 3 — <one-line summary>
+  Session 4 — <one-line summary>
+
+✨ What went well
+  <content>
+
+🔄 Recurring blockers
+  <content or "none">
+
+🎯 Goal for next cycle
+  <content>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Enjoy your 30-minute break. 🌿
+```
+
+### 5. Mark Retrospective Complete
 
 ```bash
 bash community/skills/pomodoro-timer/scripts/pomodoro-mark-retro.sh <session>
 ```
 
-5. 보고서 형식:
-
-```
-🍅 사이클 <cycle> 통합 회고
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 세션 요약
-  세션 1: [요약]
-  세션 2: [요약]
-  세션 3: [요약]
-  세션 4: [요약]
-
-✨ 잘 된 점
-  [내용]
-
-🔄 반복된 어려움
-  [내용 또는 없음]
-
-🎯 다음 사이클 목표
-  [내용]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-30분 동안 충분히 쉬세요! 🌿
-```
-
 ---
 
-#### `NO_ACTION`
+## Step 3 — Stop Timer
 
-아무것도 하지 마세요. 다음 루프 주기를 기다리세요.
-
----
-
-## 3단계: 타이머 종료
-
-사용자가 중지를 요청하면:
+When the user requests a stop:
 
 ```bash
 bash community/skills/pomodoro-timer/scripts/pomodoro.sh stop
 ```
 
-루프도 함께 중지하세요 (`/loop stop` 또는 루프를 실행 중인 경우 종료).
+Also stop the loop: issue `/loop stop` or let the user know the loop should be
+terminated from their end if it is running independently.
 
 ---
 
-## 주의사항
+## Context Inspection
 
-- `NO_ACTION`일 때는 **절대 말을 걸지 마세요.** 집중을 방해합니다.
-- `RETRO_NEEDED`를 감지하면 **지체 없이 즉각 개입**하세요.
-- 회고 후 반드시 `pomodoro-mark-retro.sh`를 실행하세요. 빠뜨리면 루프가 반복 개입합니다.
-- 회고는 **5분 안에** 끝낼 수 있게 간결하게 진행하세요.
-- 사용자가 피로해 보이면 더 적극적으로 휴식을 권하세요.
+If you need to inspect the full timer state and event log at any point:
+
+```bash
+bash community/skills/pomodoro-timer/scripts/pomodoro-context.sh
+```
+
+`phase` values and their meanings:
+
+| `phase`        | Meaning                                       |
+|----------------|-----------------------------------------------|
+| `work`         | Focus session in progress — stay silent       |
+| `short_break`  | Short break started — run session retro       |
+| `long_break`   | Long break started — run cycle retro          |
+| `idle`         | Timer not running                             |
+
+---
+
+## Rules
+
+1. **`NO_ACTION` → absolute silence.** Interrupting a focus session defeats
+   the entire purpose of the skill.
+2. **`RETRO_NEEDED` → interrupt immediately**, no matter what else is happening.
+3. **Always run `pomodoro-mark-retro.sh`** after completing a retrospective.
+   Forgetting causes the loop to re-trigger the same retrospective repeatedly.
+4. **Keep retrospectives brief** — the short break is only 5 minutes. Ask all
+   questions in a single message; do not drag it out.
+5. **If the user seems fatigued**, push back more firmly on taking the full
+   break. Rest is not optional.

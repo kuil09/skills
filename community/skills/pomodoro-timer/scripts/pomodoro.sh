@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # =============================================================================
-# pomodoro.sh — Pomodoro timer with state tracking for AI agent awareness
+# pomodoro.sh — Background Pomodoro timer with machine-readable state output
 # =============================================================================
 # Usage:
-#   pomodoro.sh start          Start a new Pomodoro cycle
-#   pomodoro.sh status         Print current state (JSON)
-#   pomodoro.sh stop           Stop the running timer
-#   pomodoro.sh log            Show session log for current cycle
+#   pomodoro.sh start    Start a new Pomodoro cycle (kills any existing timer)
+#   pomodoro.sh status   Print current state.json + human-readable time left
+#   pomodoro.sh stop     Kill the background timer, reset phase to idle
+#   pomodoro.sh log      Print the current cycle event log
+#
+# State is written to $POMODORO_STATE_DIR (default: ~/.pomodoro/) so that
+# pomodoro-check.sh and the agent can inspect it at any time.
 # =============================================================================
 set -euo pipefail
 
@@ -49,7 +52,7 @@ log_event() {
 
 notify() {
   local msg="$1"
-  # Try desktop notification; fall back to terminal bell + print
+  # Desktop notification (best-effort; falls back to terminal bell + banner)
   if command -v notify-send &>/dev/null; then
     notify-send "🍅 Pomodoro" "$msg" 2>/dev/null || true
   fi
@@ -70,7 +73,8 @@ countdown() {
   local end_epoch=$(( $(now_epoch) + total_sec ))
 
   while true; do
-    local now=$(now_epoch)
+    local now
+    now=$(now_epoch)
     local remaining=$(( end_epoch - now ))
     [[ $remaining -le 0 ]] && break
 
@@ -91,29 +95,25 @@ cmd_status() {
   fi
   cat "$STATE_FILE"
 
-  # Show human-readable remaining time if a timer is running
-  local phase session end_epoch
+  local phase end_epoch
   phase=$(grep '"phase"' "$STATE_FILE" | sed 's/.*: *"\([^"]*\)".*/\1/')
   end_epoch=$(grep '"end_epoch"' "$STATE_FILE" | sed 's/[^0-9]//g')
 
   if [[ "$phase" != "idle" && -n "$end_epoch" ]]; then
-    local now=$(now_epoch)
-    local remaining=$(( end_epoch - now ))
+    local remaining=$(( end_epoch - $(now_epoch) ))
     if [[ $remaining -gt 0 ]]; then
-      local m=$(( remaining / 60 ))
-      local s=$(( remaining % 60 ))
       echo ""
-      echo "  → 남은 시간: ${m}분 ${s}초"
+      echo "  → Time remaining: $(( remaining / 60 ))m $(( remaining % 60 ))s"
     else
       echo ""
-      echo "  → 시간이 이미 경과되었습니다."
+      echo "  → Phase has already elapsed."
     fi
   fi
 }
 
 cmd_log() {
   if [[ ! -f "$LOG_FILE" ]]; then
-    echo "세션 로그가 없습니다."
+    echo "No session log found."
     return
   fi
   cat "$LOG_FILE"
@@ -125,13 +125,13 @@ cmd_stop() {
     pid=$(cat "$PID_FILE")
     if kill -0 "$pid" 2>/dev/null; then
       kill "$pid"
-      echo "타이머 중지 (PID $pid)"
+      echo "Timer stopped (PID $pid)"
     fi
     rm -f "$PID_FILE"
   fi
   write_state "idle" 0 0 0 0
-  log_event "STOP — 타이머가 중지되었습니다"
-  echo "뽀모도로 타이머가 중지되었습니다."
+  log_event "STOP — timer stopped by user"
+  echo "Pomodoro timer stopped."
 }
 
 cmd_start() {
@@ -143,16 +143,17 @@ cmd_start() {
     rm -f "$PID_FILE"
   fi
 
-  # Reset log for new cycle
+  # Reset log and retro marker for a fresh cycle
   : > "$LOG_FILE"
-  log_event "START — 새 뽀모도로 사이클 시작"
+  rm -f "$STATE_DIR/retro_done"
+  log_event "START — new Pomodoro cycle"
 
-  echo "🍅 뽀모도로 타이머 시작!"
-  echo "   집중: ${WORK_MIN}분 × ${SESSIONS_BEFORE_LONG}회"
-  echo "   짧은 휴식: ${SHORT_BREAK_MIN}분, 긴 휴식: ${LONG_BREAK_MIN}분"
+  echo "🍅 Pomodoro timer started!"
+  echo "   Focus: ${WORK_MIN} min × ${SESSIONS_BEFORE_LONG} sessions per cycle"
+  echo "   Short break: ${SHORT_BREAK_MIN} min  |  Long break: ${LONG_BREAK_MIN} min"
   echo ""
 
-  # Run the full cycle in background
+  # Run the full cycle loop in the background
   (
     echo $$ > "$PID_FILE"
 
@@ -160,50 +161,48 @@ cmd_start() {
     local session=1
 
     while true; do
-      # ── Work phase ──────────────────────────────────────────────────────────
+      # ── Focus phase ───────────────────────────────────────────────────────
       local work_sec=$(( WORK_MIN * 60 ))
-      local ws=$(now_epoch)
+      local ws
+      ws=$(now_epoch)
       local we=$(( ws + work_sec ))
       write_state "work" "$session" "$ws" "$we" "$cycle"
-      log_event "WORK_START — 세션 $session (사이클 $cycle)"
+      log_event "WORK_START — session $session (cycle $cycle)"
 
-      notify "세션 $session 집중 시작! ${WORK_MIN}분 동안 집중하세요."
-      countdown "$work_sec" "세션 $session 집중"
+      notify "Session $session started — focus for ${WORK_MIN} minutes."
+      countdown "$work_sec" "Session $session"
+      log_event "WORK_END — session $session complete"
 
-      log_event "WORK_END — 세션 $session 완료"
-
-      # ── Determine break type ─────────────────────────────────────────────
+      # ── Select break type ─────────────────────────────────────────────────
       if (( session % SESSIONS_BEFORE_LONG == 0 )); then
         # Long break
         local break_sec=$(( LONG_BREAK_MIN * 60 ))
-        local bs=$(now_epoch)
+        local bs
+        bs=$(now_epoch)
         local be=$(( bs + break_sec ))
         write_state "long_break" "$session" "$bs" "$be" "$cycle"
-        log_event "LONG_BREAK_START — ${LONG_BREAK_MIN}분 긴 휴식 (사이클 $cycle 완료)"
+        log_event "LONG_BREAK_START — ${LONG_BREAK_MIN} min long break (cycle $cycle complete)"
 
-        notify "사이클 $cycle 완료! ${LONG_BREAK_MIN}분 긴 휴식 — 지금 Claude에게 통합 회고를 요청하세요."
-        echo "💡 Claude에게 '통합 회고해줘' 라고 말하세요."
-        countdown "$break_sec" "긴 휴식"
-
-        log_event "LONG_BREAK_END — 사이클 $cycle 긴 휴식 완료"
-        notify "긴 휴식 종료! 새 사이클을 시작합니다."
+        notify "Cycle $cycle complete! ${LONG_BREAK_MIN}-min long break — the agent will conduct the cycle retrospective."
+        countdown "$break_sec" "Long break"
+        log_event "LONG_BREAK_END — cycle $cycle long break finished"
+        notify "Long break over. Starting a new cycle."
 
         cycle=$(( cycle + 1 ))
         session=$(( session + 1 ))
       else
         # Short break
         local break_sec=$(( SHORT_BREAK_MIN * 60 ))
-        local bs=$(now_epoch)
+        local bs
+        bs=$(now_epoch)
         local be=$(( bs + break_sec ))
         write_state "short_break" "$session" "$bs" "$be" "$cycle"
-        log_event "SHORT_BREAK_START — ${SHORT_BREAK_MIN}분 짧은 휴식"
+        log_event "SHORT_BREAK_START — ${SHORT_BREAK_MIN} min short break"
 
-        notify "세션 $session 완료! ${SHORT_BREAK_MIN}분 휴식 — 지금 Claude에게 세션 회고를 요청하세요."
-        echo "💡 Claude에게 '세션 회고해줘' 라고 말하세요."
-        countdown "$break_sec" "짧은 휴식"
-
-        log_event "SHORT_BREAK_END — 휴식 완료, 다음 세션 준비"
-        notify "휴식 종료! 다음 집중 세션을 준비하세요."
+        notify "Session $session done! ${SHORT_BREAK_MIN}-min break — the agent will conduct the session retrospective."
+        countdown "$break_sec" "Short break"
+        log_event "SHORT_BREAK_END — break finished, preparing next session"
+        notify "Break over. Get ready for the next session."
 
         session=$(( session + 1 ))
       fi
@@ -214,9 +213,9 @@ cmd_start() {
 
   local bg_pid=$!
   echo "$bg_pid" > "$PID_FILE"
-  echo "  타이머 백그라운드 실행 중 (PID: $bg_pid)"
-  echo "  상태 확인: pomodoro.sh status"
-  echo "  중지:      pomodoro.sh stop"
+  echo "  Timer running in background (PID: $bg_pid)"
+  echo "  Check status : pomodoro.sh status"
+  echo "  Stop timer   : pomodoro.sh stop"
 }
 
 # ─── dispatch ─────────────────────────────────────────────────────────────────

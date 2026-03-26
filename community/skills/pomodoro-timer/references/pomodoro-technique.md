@@ -1,35 +1,64 @@
-# 뽀모도로 테크닉 참고 자료
+# Pomodoro Technique — Reference
 
-## 기본 원리
+## Origin
 
-뽀모도로 테크닉은 Francesco Cirillo가 1980년대 말에 개발한 시간 관리 방법입니다.
-토마토 모양의 주방 타이머("pomodoro"는 이탈리아어로 토마토)에서 이름을 따왔습니다.
+The Pomodoro Technique was developed by Francesco Cirillo in the late 1980s.
+He named it after the tomato-shaped kitchen timer he used as a student
+("pomodoro" is Italian for tomato).
 
-## 표준 주기
+## Standard Cycle
 
-| 단계          | 시간  | 횟수              |
-|---------------|-------|-------------------|
-| 집중 세션     | 25분  | 4회 (1 사이클)    |
-| 짧은 휴식     | 5분   | 세션 1~3 이후     |
-| 긴 휴식       | 30분  | 세션 4 이후       |
+| Phase         | Duration | Frequency per cycle          |
+|---------------|----------|------------------------------|
+| Focus session | 25 min   | 4 per cycle                  |
+| Short break   | 5 min    | After sessions 1, 2, 3       |
+| Long break    | 30 min   | After session 4 (end of cycle)|
 
-## 핵심 원칙
+## Core Principles
 
-1. **단일 작업 집중**: 집중 세션 중에는 한 가지 작업만 합니다.
-2. **방해 요소 차단**: 알림을 끄고, 긴급하지 않은 것은 메모만 합니다.
-3. **완전한 휴식**: 휴식 시간에는 완전히 쉽니다 (화면에서 눈을 떼세요).
-4. **기록과 회고**: 각 세션 후 짧은 회고로 패턴을 파악합니다.
+1. **Single-task focus** — Work on one thing only during a session. No
+   multitasking.
+2. **Protect the session** — Treat interruptions as deferred: note them down
+   and return to them during a break.
+3. **Complete rest** — Breaks are for recovery, not continued screen time.
+   Stand up, hydrate, look away from the screen.
+4. **Review and adapt** — Short retrospectives after each session surface
+   patterns in how you work and where friction appears.
 
-## 효과
+## Why It Works
 
-- 집중력 향상: 시간 제한이 있으면 집중하기 쉬워집니다.
-- 과로 방지: 규칙적인 휴식으로 번아웃을 예방합니다.
-- 진척도 추적: 세션 단위로 작업량을 측정할 수 있습니다.
-- 방해 요소 인식: 회고를 통해 반복되는 장애물을 발견합니다.
+- **Time-boxing reduces perfectionism.** Knowing there is a fixed end point
+  makes it easier to start and maintain focus.
+- **Forced breaks prevent cognitive fatigue.** Regular pauses restore attention
+  and reduce error rates.
+- **Retrospectives build self-awareness.** Naming blockers and intentions makes
+  them actionable.
 
-## AI 에이전트와 함께 사용하기
+## Using Pomodoro with an AI Agent
 
-AI 에이전트와 작업할 때 뽀모도로가 특히 유용한 이유:
-- 대화 세션이 길어지면 집중력과 판단력이 저하됩니다.
-- 휴식 중 회고로 에이전트와의 작업 방향을 재조정할 수 있습니다.
-- 긴 휴식의 통합 회고는 작업의 전체적인 맥락을 유지하는 데 도움이 됩니다.
+Extended AI-assisted work sessions are especially taxing: the constant back-and-
+forth of prompting, reviewing, and redirecting consumes significant cognitive
+bandwidth. Key adaptations:
+
+- **The agent acts first.** By the time a break arrives the user may be too
+  fatigued to initiate reflection. The agent should detect the transition and
+  intervene without being asked.
+- **Retrospectives serve as context resets.** Summarising what was accomplished
+  — and what comes next — helps both the user and the agent stay aligned on the
+  session goal rather than drifting.
+- **The long-break cycle retrospective is a defrag.** After 4 sessions the
+  consolidated report captures what worked, what recurred as friction, and
+  where to focus energy in the next cycle. This is especially valuable in long
+  agentic work sessions where context can otherwise accumulate and become noisy.
+
+## Adapting the Timings
+
+The 25/5/30 defaults are a starting point, not a rule. Adjust via environment
+variables (see `SKILL.md`) to suit your concentration style:
+
+| Style              | Work | Short break | Long break |
+|--------------------|------|-------------|------------|
+| Standard           | 25   | 5           | 30         |
+| Deep work          | 50   | 10          | 30         |
+| Quick iterations   | 15   | 3           | 20         |
+| Exploration mode   | 20   | 5           | 25         |
