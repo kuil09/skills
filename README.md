@@ -11,33 +11,54 @@
 
 ## 설치 방법
 
-### 사전 요구사항
+[skills CLI](https://skills.sh)를 사용해 에이전트에 스킬을 설치합니다. Node.js(npx)만 있으면 됩니다.
 
-- Git 2.x 이상
-- Bash 셸 환경 (Linux / macOS / WSL)
-
-### 1. 저장소 클론
+### 기본 설치
 
 ```bash
-git clone https://github.com/kuil09/skills.git
-cd skills
+# 이 저장소의 모든 스킬 설치 (대화형)
+npx skills add kuil09/skills
 ```
 
-### 2. 스크립트 실행 권한 부여
+### 자주 쓰는 설치 예시
 
 ```bash
-chmod +x scripts/new-skill.sh
+# 특정 에이전트에만 설치
+npx skills add kuil09/skills -a claude-code
+npx skills add kuil09/skills -a claude-code -a cursor
+
+# 특정 스킬만 설치
+npx skills add kuil09/skills --skill my-skill-name
+
+# 전역(글로벌) 설치 — 모든 프로젝트에서 사용
+npx skills add kuil09/skills -g
+
+# CI/CD 등 비대화형 설치
+npx skills add kuil09/skills --all -y
 ```
 
-### 3. 동작 확인
+### 설치 범위
+
+| 범위 | 플래그 | 저장 위치 |
+|------|--------|-----------|
+| 프로젝트 (기본) | 없음 | `./<agent>/skills/` |
+| 글로벌 | `-g` | `~/<agent>/skills/` |
+
+> Claude Code 기준 프로젝트 경로: `.claude/skills/` / 글로벌 경로: `~/.claude/skills/`
+
+### 설치 후 관리
 
 ```bash
-./scripts/new-skill.sh --help
-# 또는 테스트용 스킬 하나 생성
-./scripts/new-skill.sh community my-first-skill
-```
+# 설치된 스킬 목록 확인
+npx skills list
 
-생성된 폴더(`community/skills/my-first-skill/`)와 `SKILL.md` 파일이 보이면 설치가 완료된 것입니다.
+# 업데이트 확인 및 적용
+npx skills check
+npx skills update
+
+# 스킬 제거
+npx skills remove my-skill-name
+```
 
 ---
 
