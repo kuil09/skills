@@ -30,6 +30,19 @@ Cross-session **agent memory** stored as Git notes: a **canonical** handoff note
 - **Refs:** `am-agents` is a **sibling** of `agent-memory` (Git cannot nest `agent-memory/agents/...` under the leaf ref `agent-memory`)
 - **Experiments:** reproducible scenarios in the `agent-memory-lab` repo (`EXPERIMENT_PHASE2.md`, `EXPERIMENT_PHASE3.md`)
 
+### [`api-goal-canvas-designer`](./api-goal-canvas-designer/SKILL.md)
+
+Builds an **API Goal Canvas** (`Whos | Whats | Hows | Inputs | Outputs | Goals`) from rough API, product, or workflow descriptions. Each row is a coherent `Who → What → How → Input → Output → Goal` flow record, not a loose collection of cells. Detailed rules, heuristics, and templates live in [`references/REFERENCE.md`](./api-goal-canvas-designer/references/REFERENCE.md).
+
+**When to use:** designing or reviewing APIs, restructuring feature-centric requirements into actor-goal flows, or detecting missing producers/consumers, orphan records, and over-segmented request flows.
+
+**Key concepts:**
+- **Six-column canvas:** request-level meaning over endpoint-level labels
+- **Connectivity checks:** missing producer / missing consumer / orphan record detection
+- **Decomposition rules:** break vague verbs (`manage`, `process`, `integrate`) into concrete actions; separate direct users from indirect consumers, internal services, external systems, operators, and batch actors
+- **Tags:** `[confirmed]`, `[inferred]`, `[missing]`, `[orphan]`
+- **Completion states:** `INCOMPLETE` → `DRAFT_COMPLETE` → `FINAL_COMPLETE`, paired with Discovery / Draft / Final response modes
+
 ---
 
 ## Using both skills together (synergy)
